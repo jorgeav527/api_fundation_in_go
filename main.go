@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 	"sync"
 )
 
@@ -35,11 +36,40 @@ func (s *Services) GetOneService(name string) (Service, bool) {
 
 }
 
+func (s *Services) runWorker(id int, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	serviveName := fmt.Sprintf("Service-%d", id)
+	s.AddService(serviveName, Service{fmt.Sprintf("Worker-%d-DB", id)})
+	fmt.Println(serviveName)
+}
+
+func (s *Services) Runner() {
+	numWorkers := runtime.NumCPU() / 2
+	fmt.Printf("🚀 Starting %d workers...\n", numWorkers)
+
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+
+	for i := 1; i <= numWorkers; i++ {
+		go s.runWorker(i, &wg)
+	}
+	wg.Wait()
+	fmt.Println("🏁 All workers completed!\n")
+}
+
 func main() {
 	s := InitServices()
-	s.AddService("NoSQL", Service{"MongoDB"})
-	srv, ok := s.GetOneService("NoSQL")
+	s.Runner()
+	fmt.Println("📦 Final Services List:")
+	for name, srv := range s.ServiceList {
+		fmt.Printf("📦 %s: %s\n", name, srv.Name)
+	}
+
+	srv, ok := s.GetOneService("Service-1")
 	if ok {
-		fmt.Println("Found", srv.Name)
+		fmt.Println("\n🔍 Found single service:", srv.Name)
+	} else {
+		fmt.Println("\n❌ Service not found")
 	}
 }
